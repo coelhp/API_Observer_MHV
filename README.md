@@ -60,7 +60,7 @@ O token possui validade aproximada de **20 minutos**.
 
 ---
 
-## 📍 Endpoint `/v2/assets`
+## 📍 Endpoint /v2/assets
 
 ### Descrição
 Retorna a lista de ativos monitorados na planta selecionada.
@@ -89,7 +89,7 @@ GET /v2/assets
 ```
 ---
 
-##📍 Endpoint /v1/machines/{assetId}/points
+## 📍 Endpoint /v1/machines/{assetId}/points
 Descrição
 
 Retorna os pontos de medição associados a um asset específico.
@@ -125,7 +125,7 @@ Observação
 
 Nos scripts, cada ponto recebe a coluna AssetID, permitindo relacionamento direto com a tabela de assets no Power BI.
 
-##📍 Endpoint /v1/nextgensensor
+## 📍 Endpoint /v1/nextgensensor
 Descrição
 
 Retorna informações sobre sensores de nova geração instalados na planta.

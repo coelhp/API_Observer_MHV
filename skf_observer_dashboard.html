@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKF Observer Phoenix — Monitor de Tendências</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+
+  :root {
+    --bg: #0a0d12;
+    --panel: #0f1318;
+    --border: #1e2730;
+    --accent: #00c8ff;
+    --accent2: #ff6b35;
+    --warn: #ffc107;
+    --danger: #ff3b5c;
+    --ok: #00e676;
+    --muted: #4a5568;
+    --text: #c9d4e0;
+    --text-dim: #5a6a7e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, #0f1318 0%, #0a0f16 100%);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .logo-mark::after {
+    content: '';
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+  .logo-text { line-height: 1; }
+  .logo-text span { display: block; }
+  .logo-text .brand { font-size: 20px; font-weight: 900; letter-spacing: 2px; color: white; }
+  .logo-text .sub { font-size: 11px; letter-spacing: 4px; color: var(--accent); font-family: 'Share Tech Mono', monospace; }
+  .header-status {
+    display: flex; align-items: center; gap: 24px;
+  }
+  .status-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    background: rgba(0,200,255,0.08);
+    border: 1px solid rgba(0,200,255,0.25);
+    color: var(--accent);
+  }
+  .conn-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+    display: inline-block; margin-right: 6px;
+    transition: background 0.3s;
+  }
+  .conn-dot.online { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .conn-dot.error { background: var(--danger); }
+
+  /* ── MAIN LAYOUT ── */
+  .main { display: flex; flex: 1; }
+  .sidebar {
+    width: 300px; min-width: 300px;
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+    background: var(--panel);
+  }
+  .content { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; overflow: hidden; }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .panel-body { padding: 16px; }
+
+  /* ── FORM CONTROLS ── */
+  label {
+    display: block;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 5px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  input, select {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: 'Barlow Condensed', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 12px;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--text-dim); }
+
+  select option { background: #1a2030; }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--accent);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+    z-index: 0;
+  }
+  .btn:hover::before { transform: translateX(0); }
+  .btn:hover { color: var(--bg); }
+  .btn span { position: relative; z-index: 1; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:disabled::before { display: none; }
+  .btn:disabled:hover { color: var(--accent); }
+
+  .btn-danger {
+    border-color: var(--danger); color: var(--danger);
+    margin-top: 6px;
+  }
+  .btn-danger::before { background: var(--danger); }
+  .btn-danger:hover { color: var(--bg); }
+
+  /* ── METRICS ── */
+  .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .metric {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent);
+  }
+  .metric.warn::before { background: var(--warn); }
+  .metric.danger::before { background: var(--danger); }
+  .metric.ok::before { background: var(--ok); }
+  .metric-label {
+    font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 6px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .metric-value {
+    font-size: 28px; font-weight: 900;
+    line-height: 1; color: white;
+  }
+  .metric-unit {
+    font-size: 11px; color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    margin-top: 2px;
+  }
+
+  /* ── CHART ── */
+  .chart-container {
+    position: relative; height: 320px;
+  }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12px;
+  }
+  .data-table th {
+    padding: 8px 12px; text-align: left;
+    font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-dim); border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace; font-weight: 400;
+  }
+  .data-table td {
+    padding: 9px 12px; border-bottom: 1px solid rgba(30,39,48,0.6);
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+  }
+  .data-table tr:hover td { background: rgba(0,200,255,0.03); }
+
+  .badge {
+    padding: 2px 8px; border-radius: 1px;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .badge-danger { background: rgba(255,59,92,0.15); color: var(--danger); border: 1px solid rgba(255,59,92,0.3); }
+  .badge-warn { background: rgba(255,193,7,0.15); color: var(--warn); border: 1px solid rgba(255,193,7,0.3); }
+  .badge-ok { background: rgba(0,230,118,0.1); color: var(--ok); border: 1px solid rgba(0,230,118,0.25); }
+
+  /* ── ASSET LIST ── */
+  .asset-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .asset-item:hover { border-color: rgba(0,200,255,0.4); background: rgba(0,200,255,0.04); }
+  .asset-item.selected { border-color: var(--accent); background: rgba(0,200,255,0.07); }
+  .asset-name { font-weight: 600; font-size: 14px; color: white; }
+  .asset-path { font-size: 10px; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; margin-top: 2px; }
+  .asset-status { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); }
+
+  /* ── LOG ── */
+  .log-area {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 14px;
+    height: 120px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .log-line { margin-bottom: 3px; }
+  .log-line.ok { color: var(--ok); }
+  .log-line.err { color: var(--danger); }
+  .log-line.info { color: var(--accent); }
+
+  .loading-spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .divider {
+    height: 1px; background: var(--border); margin: 8px 0;
+  }
+
+  .empty-state {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .section-label {
+    font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  .tab-row { display: flex; gap: 0; margin-bottom: 16px; }
+  .tab {
+    padding: 7px 18px; cursor: pointer;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    font-family: 'Share Tech Mono', monospace;
+    border: 1px solid var(--border); border-right: none; color: var(--text-dim);
+    transition: all 0.15s; background: transparent;
+  }
+  .tab:last-child { border-right: 1px solid var(--border); }
+  .tab.active { border-color: var(--accent); color: var(--accent); background: rgba(0,200,255,0.07); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div class="logo-text">
+        <span class="brand">SKF OBSERVER</span>
+        <span class="sub">Phoenix API v2.0 — Monitor de Tendências</span>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-chip">
+        <span class="conn-dot" id="connDot"></span>
+        <span id="connStatus">DESCONECTADO</span>
+      </div>
+      <div class="status-chip" id="tokenTimer">TOKEN: —</div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="section-label">Conexão</div>
+
+      <div>
+        <label>Base URL</label>
+        <input type="text" id="baseUrl" placeholder="http://127.0.0.1:14050" value="http://127.0.0.1:14050">
+      </div>
+      <div>
+        <label>Usuário</label>
+        <input type="text" id="username" placeholder="admin">
+      </div>
+      <div>
+        <label>Senha</label>
+        <input type="password" id="password" placeholder="••••••••">
+      </div>
+      <button class="btn" id="btnAuth" onclick="authenticate()"><span>⚡ Autenticar</span></button>
+
+      <div class="divider"></div>
+      <div class="section-label">Filtros de Consulta</div>
+
+      <div>
+        <label>ID do Ponto (pointId)</label>
+        <input type="number" id="pointId" placeholder="ex: 92">
+      </div>
+      <div class="date-row">
+        <div>
+          <label>De (UTC)</label>
+          <input type="datetime-local" id="fromDate">
+        </div>
+        <div>
+          <label>Até (UTC)</label>
+          <input type="datetime-local" id="toDate">
+        </div>
+      </div>
+      <div>
+        <label>Máx. Alarmes</label>
+        <input type="number" id="maxAlarms" value="200" min="1" max="1000">
+      </div>
+      <div>
+        <label>Incluir Reconhecidos</label>
+        <select id="includeAck">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </div>
+
+      <button class="btn" id="btnFetch" onclick="fetchData()" disabled><span>📡 Buscar Dados</span></button>
+      <button class="btn btn-danger" onclick="clearData()"><span>✕ Limpar</span></button>
+
+      <div class="divider"></div>
+      <div class="section-label">Log do Sistema</div>
+      <div class="log-area" id="logArea"></div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+
+      <!-- METRICS -->
+      <div class="metrics-row">
+        <div class="metric" id="mAssets">
+          <div class="metric-label">Ativos</div>
+          <div class="metric-value" id="mAssetsVal">—</div>
+          <div class="metric-unit">Máquinas</div>
+        </div>
+        <div class="metric danger" id="mAlarms">
+          <div class="metric-label">Alarmes</div>
+          <div class="metric-value" id="mAlarmsVal">—</div>
+          <div class="metric-unit">Registros</div>
+        </div>
+        <div class="metric warn" id="mMaxVal">
+          <div class="metric-label">Valor Máx.</div>
+          <div class="metric-value" id="mMaxValNum">—</div>
+          <div class="metric-unit" id="mMaxUnit">—</div>
+        </div>
+        <div class="metric ok" id="mThreshold">
+          <div class="metric-label">Limiar (Rule)</div>
+          <div class="metric-value" id="mThresholdNum">—</div>
+          <div class="metric-unit" id="mThresholdUnit">—</div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tab-row">
+        <div class="tab active" onclick="switchTab('trend')">Tendência</div>
+        <div class="tab" onclick="switchTab('assets')">Ativos</div>
+        <div class="tab" onclick="switchTab('table')">Tabela de Alarmes</div>
+      </div>
+
+      <!-- TREND TAB -->
+      <div class="tab-content active" id="tab-trend">
+        <div class="panel" style="flex:1">
+          <div class="panel-header">
+            <span class="panel-title">📈 Tendência de Leituras</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim)" id="chartTitle">—</span>
+          </div>
+          <div class="panel-body">
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASSETS TAB -->
+      <div class="tab-content" id="tab-assets">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🏭 Ativos / Máquinas</span>
+            <button class="btn" style="width:auto;padding:4px 14px;font-size:10px" onclick="fetchAssets()"><span>Atualizar</span></button>
+          </div>
+          <div class="panel-body" id="assetsList">
+            <div class="empty-state">// autentique e clique em "Atualizar"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLE TAB -->
+      <div class="tab-content" id="tab-table">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🔔 Registro de Alarmes</span>
+            <span id="tableCount" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim)">0 registros</span>
+          </div>
+          <div class="panel-body" style="padding:0;overflow-x:auto">
+            <table class="data-table" id="alarmTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Ponto</th>
+                  <th>Título</th>
+                  <th>Status</th>
+                  <th>Valor</th>
+                  <th>Limiar</th>
+                  <th>Fonte</th>
+                  <th>Data/Hora (UTC)</th>
+                  <th>Reconh.</th>
+                </tr>
+              </thead>
+              <tbody id="alarmTableBody">
+                <tr><td colspan="9" class="empty-state">// sem dados</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────
+let token = null;
+let trendChart = null;
+let alarmData = [];
+
+// ── UTILS ──────────────────────────────────────────────
+function log(msg, type = 'info') {
+  const area = document.getElementById('logArea');
+  const ts = new Date().toLocaleTimeString('pt-BR');
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = `[${ts}] ${msg}`;
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+
+function setStatus(online, text) {
+  const dot = document.getElementById('connDot');
+  const status = document.getElementById('connStatus');
+  dot.className = 'conn-dot' + (online === true ? ' online' : online === false ? ' error' : '');
+  status.textContent = text;
+}
+
+function baseUrl() {
+  return document.getElementById('baseUrl').value.replace(/\/+$/, '');
+}
+
+function authHeader() {
+  return token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json; v=2.0' } : { 'Accept': 'application/json; v=2.0' };
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['trend', 'assets', 'table'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === `tab-${name}`);
+  });
+}
+
+// ── DEMO DATA (quando sem servidor real) ───────────────
+function generateDemoData() {
+  const now = new Date();
+  const data = [];
+  const statuses = ['High Alarm', 'Low Alert', 'High Alert', 'Normal', 'High Alarm'];
+  for (let i = 60; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 3600 * 1000);
+    const base = 0.12 + Math.sin(i / 8) * 0.04;
+    const noise = (Math.random() - 0.5) * 0.05;
+    const value = Math.max(0.01, base + noise + (i < 10 ? 0.08 : 0));
+    data.push({
+      id: 1000 + i,
+      pointID: 92,
+      title: 'Overall',
+      source: 'Overall',
+      status: value > 0.18 ? 'High Alarm' : value > 0.15 ? 'High Alert' : 'Normal',
+      value: { value: parseFloat(value.toFixed(6)), unit: 'g P' },
+      rule: { value: 0.03331154, unit: 'g P' },
+      acknowledged: Math.random() > 0.7,
+      timestamps: [{ value: d.toISOString(), unit: 'UTC' }]
+    });
+  }
+  return data;
+}
+
+function generateDemoAssets() {
+  return [
+    { ID: 57, Name: 'Turbine G1', Description: 'IMx8 measurements', Path: 'Plant\\Turbines\\G1', Status: [1], StatusChanged: '2024-03-01T10:00:00Z', Acknowledged: false },
+    { ID: 58, Name: 'Pump A2', Description: 'Centrifugal pump line A', Path: 'Plant\\Pumps\\A2', Status: [2], StatusChanged: '2024-02-15T08:30:00Z', Acknowledged: false },
+    { ID: 59, Name: 'Motor B1', Description: 'Drive motor conveyor B', Path: 'Plant\\Motors\\B1', Status: [0], StatusChanged: '2024-01-20T14:15:00Z', Acknowledged: true },
+    { ID: 60, Name: 'Compressor C3', Description: 'Air compressor unit 3', Path: 'Plant\\Compressors\\C3', Status: [1], StatusChanged: '2024-03-08T09:45:00Z', Acknowledged: false },
+  ];
+}
+
+// ── AUTH ───────────────────────────────────────────────
+async function authenticate() {
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const url = `${baseUrl()}/token`;
+
+  log(`Autenticando em ${url}...`);
+  setStatus(null, 'AUTENTICANDO...');
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=password&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    token = data.access_token;
+    setStatus(true, 'ONLINE');
+    document.getElementById('tokenTimer').textContent = `TOKEN: ${Math.round(data.expires_in / 60)}min`;
+    document.getElementById('btnFetch').disabled = false;
+    log('Autenticação bem-sucedida.', 'ok');
+    fetchAssets();
+
+  } catch (e) {
+    log(`Erro de autenticação: ${e.message}. Usando dados de demonstração.`, 'err');
+    // Enable demo mode
+    token = 'DEMO';
+    setStatus(true, 'MODO DEMO');
+    document.getElementById('tokenTimer').textContent = 'TOKEN: DEMO';
+    document.getElementById('btnFetch').disabled = false;
+    renderAssets(generateDemoAssets());
+  }
+}
+
+// ── FETCH ASSETS ───────────────────────────────────────
+async function fetchAssets() {
+  if (!token) { log('Autentique primeiro.', 'err'); return; }
+  log('Buscando ativos...');
+
+  if (token === 'DEMO') {
+    renderAssets(generateDemoAssets());
+    return;
+  }
+
+  try {
+    const resp = await fetch(`${baseUrl()}/v2/assets`, { headers: authHeader() });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    renderAssets(data);
+    document.getElementById('mAssetsVal').textContent = data.length;
+    log(`${data.length} ativo(s) carregado(s).`, 'ok');
+  } catch (e) {
+    log(`Erro ao buscar ativos: ${e.message}`, 'err');
+  }
+}
+
+function renderAssets(assets) {
+  const container = document.getElementById('assetsList');
+  document.getElementById('mAssetsVal').textContent = assets.length;
+  if (!assets.length) { container.innerHTML = '<div class="empty-state">// sem ativos</div>'; return; }
+
+  const statusLabel = s => {
+    if (!s || !s.length) return ['ok', 'OK'];
+    switch (s[0]) {
+      case 0: return ['ok', 'Normal'];
+      case 1: return ['warn', 'Alerta'];
+      case 2: return ['danger', 'Alarme'];
+      default: return ['ok', 'OK'];
+    }
+  };
+
+  container.innerHTML = assets.map(a => {
+    const [cls, txt] = statusLabel(a.Status);
+    return `
+      <div class="asset-item" onclick="selectAsset(${a.ID}, '${a.Name}')">
+        <div class="asset-name">${a.Name}</div>
+        <div class="asset-path">${a.Path}</div>
+        ${a.Description ? `<div class="asset-path" style="color:var(--text-dim)">${a.Description}</div>` : ''}
+        <div class="asset-status"><span class="badge badge-${cls}">${txt}</span></div>
+      </div>`;
+  }).join('');
+}
+
+function selectAsset(id, name) {
+  document.querySelectorAll('.asset-item').forEach(el => el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  log(`Ativo selecionado: ${name} (ID ${id})`);
+}
+
+// ── FETCH ALARMS ────────────────────────────────────────
+async function fetchData() {
+  if (!token) { log('Autentique primeiro.', 'err'); return; }
+
+  const pointId = document.getElementById('pointId').value;
+  const fromDate = document.getElementById('fromDate').value;
+  const toDate = document.getElementById('toDate').value;
+  const maxAlarms = document.getElementById('maxAlarms').value || 200;
+  const ack = document.getElementById('includeAck').value;
+
+  if (token === 'DEMO') {
+    log('Gerando dados de demonstração...', 'info');
+    alarmData = generateDemoData();
+    processAlarmData(alarmData);
+    return;
+  }
+
+  let url = `${baseUrl()}/v2/alarms?maxNumberOfAlarms=${maxAlarms}&acknowledged=${ack}&descending=true`;
+  if (pointId) url += `&pointId=${pointId}`;
+  if (fromDate) url += `&fromDateUTC=${new Date(fromDate).toISOString()}`;
+  if (toDate) url += `&toDateUTC=${new Date(toDate).toISOString()}`;
+
+  log(`GET ${url}`);
+
+  try {
+    const resp = await fetch(url, { headers: authHeader() });
+    if (resp.status === 204) { log('Sem dados no período selecionado.', 'err'); return; }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    alarmData = await resp.json();
+    log(`${alarmData.length} alarme(s) recebido(s).`, 'ok');
+    processAlarmData(alarmData);
+  } catch (e) {
+    log(`Erro: ${e.message}`, 'err');
+  }
+}
+
+// ── PROCESS & RENDER ────────────────────────────────────
+function processAlarmData(data) {
+  if (!data.length) return;
+
+  // Sort by timestamp ascending
+  data.sort((a, b) => {
+    const ta = a.timestamps?.[0]?.value || 0;
+    const tb = b.timestamps?.[0]?.value || 0;
+    return new Date(ta) - new Date(tb);
+  });
+
+  // Metrics
+  const values = data.map(d => d.value?.value ?? 0);
+  const maxVal = Math.max(...values);
+  const avgThreshold = data.reduce((s, d) => s + (d.rule?.value ?? 0), 0) / data.length;
+  const unit = data[0]?.value?.unit || '';
+
+  document.getElementById('mAlarmsVal').textContent = data.length;
+  document.getElementById('mMaxValNum').textContent = maxVal.toFixed(4);
+  document.getElementById('mMaxUnit').textContent = unit;
+  document.getElementById('mThresholdNum').textContent = avgThreshold.toFixed(4);
+  document.getElementById('mThresholdUnit').textContent = data[0]?.rule?.unit || unit;
+
+  document.getElementById('chartTitle').textContent =
+    `${data[0]?.title || 'Overall'} · ${data[0]?.source || ''} · ${unit}`;
+
+  renderTrendChart(data, unit, avgThreshold);
+  renderTable(data);
+  log('Visualização atualizada.', 'ok');
+}
+
+function statusColor(status) {
+  if (!status) return '#4a5568';
+  const s = status.toLowerCase();
+  if (s.includes('high alarm')) return '#ff3b5c';
+  if (s.includes('alarm')) return '#ff3b5c';
+  if (s.includes('high alert')) return '#ffc107';
+  if (s.includes('alert')) return '#ffc107';
+  return '#00e676';
+}
+
+function renderTrendChart(data, unit, threshold) {
+  const labels = data.map(d => {
+    const ts = d.timestamps?.[0]?.value;
+    if (!ts) return '';
+    const dt = new Date(ts);
+    return dt.toLocaleDateString('pt-BR', { month: '2-digit', day: '2-digit' }) + '\n' +
+           dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  });
+
+  const values = data.map(d => d.value?.value ?? null);
+  const colors = data.map(d => statusColor(d.status));
+
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: `Leitura (${unit})`,
+          data: values,
+          borderColor: '#00c8ff',
+          backgroundColor: (ctx) => {
+            const chart = ctx.chart;
+            const { ctx: c, chartArea } = chart;
+            if (!chartArea) return 'transparent';
+            const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            grad.addColorStop(0, 'rgba(0,200,255,0.25)');
+            grad.addColorStop(1, 'rgba(0,200,255,0.00)');
+            return grad;
+          },
+          borderWidth: 2,
+          pointBackgroundColor: colors,
+          pointBorderColor: colors,
+          pointRadius: data.length > 100 ? 2 : 4,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.35,
+        },
+        {
+          label: `Limiar (${unit})`,
+          data: data.map(() => threshold),
+          borderColor: '#ff6b35',
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#c9d4e0',
+            font: { family: 'Share Tech Mono', size: 11 },
+            boxWidth: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#0f1318',
+          borderColor: '#1e2730',
+          borderWidth: 1,
+          titleColor: '#00c8ff',
+          bodyColor: '#c9d4e0',
+          callbacks: {
+            afterBody: (items) => {
+              const idx = items[0]?.dataIndex;
+              const d = data[idx];
+              if (!d) return '';
+              return [`Status: ${d.status || '—'}`, `Ponto ID: ${d.pointID}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#4a5568',
+            font: { family: 'Share Tech Mono', size: 10 },
+            maxTicksLimit: 12,
+            maxRotation: 0,
+          },
+          grid: { color: 'rgba(30,39,48,0.8)' }
+        },
+        y: {
+          ticks: {
+            color: '#4a5568',
+            font: { family: 'Share Tech Mono', size: 10 },
+            callback: v => v.toFixed(4)
+          },
+          grid: { color: 'rgba(30,39,48,0.8)' }
+        }
+      }
+    }
+  });
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('alarmTableBody');
+  document.getElementById('tableCount').textContent = `${data.length} registros`;
+
+  const statusBadge = s => {
+    if (!s) return '<span class="badge">—</span>';
+    const sl = s.toLowerCase();
+    const cls = sl.includes('alarm') ? 'danger' : sl.includes('alert') ? 'warn' : 'ok';
+    return `<span class="badge badge-${cls}">${s}</span>`;
+  };
+
+  tbody.innerHTML = data.map(d => {
+    const ts = d.timestamps?.[0]?.value ? new Date(d.timestamps[0].value).toLocaleString('pt-BR') : '—';
+    return `
+      <tr>
+        <td>${d.id ?? '—'}</td>
+        <td>${d.pointID ?? '—'}</td>
+        <td>${d.title ?? '—'}</td>
+        <td>${statusBadge(d.status)}</td>
+        <td>${d.value?.value?.toFixed(6) ?? '—'} ${d.value?.unit ?? ''}</td>
+        <td>${d.rule?.value?.toFixed(6) ?? '—'} ${d.rule?.unit ?? ''}</td>
+        <td>${d.source ?? '—'}</td>
+        <td>${ts}</td>
+        <td>${d.acknowledged ? '<span class="badge badge-ok">Sim</span>' : '<span class="badge">Não</span>'}</td>
+      </tr>`;
+  }).join('');
+}
+
+function clearData() {
+  alarmData = [];
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+  document.getElementById('alarmTableBody').innerHTML = '<tr><td colspan="9" class="empty-state">// sem dados</td></tr>';
+  document.getElementById('tableCount').textContent = '0 registros';
+  ['mAssetsVal','mAlarmsVal','mMaxValNum','mThresholdNum'].forEach(id => document.getElementById(id).textContent = '—');
+  ['mMaxUnit','mThresholdUnit','chartTitle'].forEach(id => document.getElementById(id).textContent = '—');
+  log('Dados limpos.', 'info');
+}
+
+// ── INIT ────────────────────────────────────────────────
+(function init() {
+  // Set default date range: last 30 days
+  const now = new Date();
+  const past = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+  document.getElementById('toDate').value = now.toISOString().slice(0, 16);
+  document.getElementById('fromDate').value = past.toISOString().slice(0, 16);
+  log('Dashboard inicializado. Configure a URL base e autentique.', 'info');
+  log('Sem servidor? Deixe os campos em branco e autentique para modo DEMO.', 'info');
+})();
+</script>
+</body>
+</html>

@@ -379,7 +379,7 @@ Cada script retorna um único DataFrame
 
 Não há gravação de arquivos
 
-Atualização ocorre sob demanda no Power BI Desktop
+Atualização ocorre sob demanda no Power BI Desktop. Podendo ser otimizada de forma que atualize com mais recorrências
 
 Recomenda-se:
 

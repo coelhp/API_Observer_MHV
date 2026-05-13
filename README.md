@@ -2,7 +2,7 @@
 
 Este repositório contém scripts Python para consumo direto da **API SKF Observer**, com foco em integração com **Power BI (Script Python)**, sem necessidade de armazenamento intermediário de dados.
 
-Os scripts realizam autenticação, consulta e estruturação dos dados retornados pelos endpoints:
+Os scripts realizam autenticação, consulta e estruturação dos dados retornados pelos endpoints abaixo:
 - `/v2/assets`
 - `/v1/machines/{assetId}/points`
 - `/v1/nextgensensor`

@@ -392,11 +392,6 @@ Relacionamento via AssetID no modelo de dados
 
 Uso interno / corporativo – SKF Observer API.
 
-## Acervo de Imagens Resultado Final
-
-<img width="1304" height="638" alt="image" src="https://github.com/user-attachments/assets/810fcf4a-59c5-404c-a7a4-2c2bbc13cea8" />
-<img width="1139" height="723" alt="image" src="https://github.com/user-attachments/assets/ab6dd7e5-040b-4184-96d9-baf72255d09a" />
-<img width="1295" height="687" alt="image" src="https://github.com/user-attachments/assets/1206a23d-3eef-462a-81a8-01f2e6994b22" />
 
 **OBS:** Imagens foram alteradas afim de respeitar e seguir com a proteção de dados da empresa.
 

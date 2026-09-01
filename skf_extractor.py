@@ -614,7 +614,7 @@ def mhv_fetch_assets(short_name: str) -> pd.DataFrame:
         if cursor:
             expr = f'{{ filter(cursor: {cursor}) {expression_base} }}'
         else:
-            expr = f'{{ filter() {expression_base} }}'
+            expr = f'{{ filter {expression_base} }}'
 
         payload = {"expression": expr}
         data    = _mhv_post(short_name, "assets", payload)

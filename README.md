@@ -12,7 +12,7 @@ Os scripts realizam autenticação, consulta e estruturação dos dados retornad
 ## 📌 Visão Geral
 
 A API SKF Observer disponibiliza dados de monitoramento de ativos industriais.  
-Cada planta é identificada por uma **porta TCP específica**, enquanto a URL base permanece a mesma.
+Cada planta é identificada por uma **porta TCP específica**, enquanto a URL base permanece.
 
 O fluxo de dados segue a lógica:
 

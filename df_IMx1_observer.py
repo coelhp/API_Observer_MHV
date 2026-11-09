@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 
 base_url = "http://services.repcenter.skf.com"
-port = ""  # A autenticação para esta API difere-se da API do MHV, tendo em vista que não utiliza API Key para autenticação e sim token de 20 min de duração
+port = ""  # A autenticação para esta API difere-se da API do MHV, tendo em vista que não utiliza API Key para autenticação e token de 20 min de duração
 username = ""
 password = ""
 timeout = 60  # tempo de espera em segundos

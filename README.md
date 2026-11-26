@@ -1,4 +1,4 @@
-# SKF Observer API – Assets, Points e NextGenSensor
+# SKF Observer API - Assets, Points e NextGenSensor (Sensores)
 
 Este repositório contém scripts desenvolvidos em Python para consumo direto da **API SKF Observer**, com foco em integração com **Power BI (Script Python)**, sem necessidade de armazenamento intermediário de dados.
 
